@@ -1,17 +1,24 @@
-FROM ubuntu:latest AS build
+# ===== STAGE 1: build =====
+FROM eclipse-temurin:17-jdk-jammy AS build
 
-RUN apt-get update
-RUN apt-get install openjdk-17-jdk -y
+WORKDIR /app
 
-COPY . .
+COPY pom.xml .
+COPY .mvn .mvn
+COPY mvnw .
+RUN ./mvnw dependency:go-offline
 
-RUN apt-get install maven -y
-RUN mvn clean install
+COPY src src
+RUN ./mvnw clean package -DskipTests
 
-FROM openjdk:17-jdk-slim
+
+# ===== STAGE 2: runtime =====
+FROM eclipse-temurin:17-jre-jammy
+
+WORKDIR /app
 
 EXPOSE 8080
 
-COPY --from=build /target/todolist-1.0.0.jar app.jar
+COPY --from=build /app/target/*.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
